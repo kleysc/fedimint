@@ -26,6 +26,7 @@ pub mod db;
 
 use std::fs;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::Context;
@@ -89,6 +90,7 @@ pub type SetupUiRouter = Box<dyn Fn(DynSetupApi) -> axum::Router + Send>;
 pub async fn run(
     data_dir: PathBuf,
     force_api_secrets: ApiSecrets,
+    guardian_bcrypt_password_hash: Option<String>,
     settings: ConfigGenSettings,
     db: Database,
     code_version_str: String,
@@ -100,6 +102,16 @@ pub async fn run(
     db_checkpoint_retention: u64,
     iroh_api_limits: ConnectionLimits,
 ) -> anyhow::Result<()> {
+    let guardian_bcrypt_password_hash: Option<Arc<bcrypt::HashParts>> =
+        guardian_bcrypt_password_hash
+            .as_deref()
+            .map(|s| {
+                use std::str::FromStr as _;
+                bcrypt::HashParts::from_str(s)
+                    .context("Invalid FM_GUARDIAN_BCRYPT_PASSWORD_HASH: not a valid bcrypt hash")
+            })
+            .transpose()?
+            .map(Arc::new);
     let (cfg, connections, p2p_status_receivers) = match get_config(&data_dir)? {
         Some(cfg) => {
             let connector = if cfg.consensus.iroh_endpoints.is_empty() {
@@ -194,6 +206,7 @@ pub async fn run(
         dashboard_ui_router,
         db_checkpoint_retention,
         iroh_api_limits,
+        guardian_bcrypt_password_hash,
     ))
     .await?;
 
@@ -265,6 +278,7 @@ pub async fn run_config_gen(
         rpc_module,
         10,
         api_secrets.clone(),
+        None,
     )
     .await;
 

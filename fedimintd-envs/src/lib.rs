@@ -42,3 +42,8 @@ pub const FM_BITCOIND_PASSWORD_ENV: &str = "FM_BITCOIND_PASSWORD";
 // <https://github.com/n0-computer/iroh/discussions/3212>
 pub const FM_IROH_API_MAX_REQUESTS_PER_CONNECTION_ENV: &str =
     "FM_IROH_API_MAX_REQUESTS_PER_CONNECTION";
+
+/// Bcrypt hash of the guardian admin password for API authentication.
+/// When set, this hash is used to verify incoming API requests instead
+/// of the plaintext `api_auth` stored in the private config.
+pub const FM_GUARDIAN_BCRYPT_PASSWORD_HASH_ENV: &str = "FM_GUARDIAN_BCRYPT_PASSWORD_HASH";

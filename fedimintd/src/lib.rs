@@ -48,7 +48,8 @@ use fedimintd_envs::{
     FM_BITCOIND_URL_ENV, FM_BITCOIND_URL_PASSWORD_FILE_ENV, FM_BITCOIND_USERNAME_ENV,
     FM_DATA_DIR_ENV, FM_DB_CHECKPOINT_RETENTION_ENV, FM_DISABLE_META_MODULE_ENV,
     FM_ENABLE_IROH_ENV, FM_ESPLORA_URL_ENV, FM_FORCE_API_SECRETS_ENV,
-    FM_IROH_API_MAX_CONNECTIONS_ENV, FM_IROH_API_MAX_REQUESTS_PER_CONNECTION_ENV, FM_P2P_URL_ENV,
+    FM_GUARDIAN_BCRYPT_PASSWORD_HASH_ENV, FM_IROH_API_MAX_CONNECTIONS_ENV,
+    FM_IROH_API_MAX_REQUESTS_PER_CONNECTION_ENV, FM_P2P_URL_ENV,
 };
 use futures::FutureExt as _;
 use tracing::{debug, error, info};
@@ -197,6 +198,13 @@ struct ServerOpts {
     /// and defaults will be provided via `FM_DEFAULT_API_SECRETS`.
     #[arg(long, env = FM_FORCE_API_SECRETS_ENV, default_value = "")]
     force_api_secrets: ApiSecrets,
+
+    /// Bcrypt hash of the guardian admin password for API authentication.
+    /// When set, API requests are verified against this hash instead of
+    /// the plaintext password stored in the private config.
+    /// Generate with: `htpasswd -bnBC 12 "" <password> | tr -d ':\n'`
+    #[arg(long, env = FM_GUARDIAN_BCRYPT_PASSWORD_HASH_ENV)]
+    guardian_bcrypt_password_hash: Option<String>,
 
     /// Maximum number of concurrent Iroh API connections
     #[arg(long = "iroh-api-max-connections", env = FM_IROH_API_MAX_CONNECTIONS_ENV, default_value = "1000")]
@@ -366,6 +374,7 @@ pub async fn run(
         fedimint_server::run(
             server_opts.data_dir,
             server_opts.force_api_secrets,
+            server_opts.guardian_bcrypt_password_hash,
             settings,
             db,
             code_version_str,

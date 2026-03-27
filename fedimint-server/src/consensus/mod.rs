@@ -80,6 +80,7 @@ pub async fn run(
     dashboard_ui_router: DashboardUiRouter,
     db_checkpoint_retention: u64,
     iroh_api_limits: ConnectionLimits,
+    guardian_bcrypt_password_hash: Option<Arc<bcrypt::HashParts>>,
 ) -> anyhow::Result<()> {
     cfg.validate_config(&cfg.local.identity, &module_init_registry)?;
 
@@ -207,6 +208,7 @@ pub async fn run(
         force_api_secret: force_api_secrets.get_active(),
         code_version_str,
         task_group: task_group.clone(),
+        guardian_bcrypt_password_hash: guardian_bcrypt_password_hash.clone(),
     };
 
     info!(target: LOG_CONSENSUS, "Starting Consensus Api...");
@@ -216,6 +218,7 @@ pub async fn run(
         consensus_api.clone(),
         force_api_secrets.clone(),
         api_bind,
+        guardian_bcrypt_password_hash,
     )
     .await;
 
@@ -327,6 +330,7 @@ async fn start_consensus_api(
     api: ConsensusApi,
     force_api_secrets: ApiSecrets,
     api_bind: SocketAddr,
+    bcrypt_hash: Option<Arc<bcrypt::HashParts>>,
 ) -> ServerHandle {
     let mut rpc_module = RpcModule::new(api.clone());
 
@@ -342,6 +346,7 @@ async fn start_consensus_api(
         rpc_module,
         cfg.max_connections,
         force_api_secrets,
+        bcrypt_hash,
     )
     .await
 }

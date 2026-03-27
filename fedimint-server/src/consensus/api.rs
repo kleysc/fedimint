@@ -2,6 +2,7 @@
 use std::cmp::Ordering;
 use std::collections::{BTreeMap, HashMap};
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, Result};
@@ -103,6 +104,7 @@ pub struct ConsensusApi {
     pub supported_api_versions: SupportedApiVersionsSummary,
     pub code_version_str: String,
     pub task_group: TaskGroup,
+    pub guardian_bcrypt_password_hash: Option<Arc<bcrypt::HashParts>>,
 }
 
 impl ConsensusApi {
@@ -681,10 +683,13 @@ impl HasApiContext<ConsensusApi> for ConsensusApi {
             self,
             ApiEndpointContext::new(
                 db,
-                request
-                    .auth
-                    .as_ref()
-                    .is_some_and(|auth| self.cfg.private.api_auth.verify(auth.as_str())),
+                request.auth.as_ref().is_some_and(|auth| {
+                    if let Some(hash) = &self.guardian_bcrypt_password_hash {
+                        bcrypt::verify(auth.as_str(), &hash.to_string()).unwrap_or(false)
+                    } else {
+                        self.cfg.private.api_auth.verify(auth.as_str())
+                    }
+                }),
                 request.auth.clone(),
             ),
         )
@@ -803,8 +808,12 @@ impl IDashboardApi for ConsensusApi {
         current_password: &str,
         guardian_auth: &GuardianAuthToken,
     ) -> Result<(), String> {
-        let auth = self.auth().await;
-        if !auth.verify(current_password) {
+        let password_ok = if let Some(hash) = &self.guardian_bcrypt_password_hash {
+            bcrypt::verify(current_password, &hash.to_string()).unwrap_or(false)
+        } else {
+            self.cfg.private.api_auth.verify(current_password)
+        };
+        if !password_ok {
             return Err("Current password is incorrect".into());
         }
         self.change_guardian_password(new_password, guardian_auth)

@@ -7,6 +7,7 @@ use std::fmt::{self, Formatter};
 use std::net::SocketAddr;
 use std::panic::AssertUnwindSafe;
 use std::str::FromStr;
+use std::sync::Arc;
 use std::time::Duration;
 
 use anyhow::{Context, bail};
@@ -100,10 +101,12 @@ pub async fn spawn<T>(
     module: RpcModule<T>,
     max_connections: u32,
     api_secrets: ApiSecrets,
+    bcrypt_hash: Option<Arc<bcrypt::HashParts>>,
 ) -> ServerHandle {
     info!(target: LOG_NET_API, "Starting http api on ws://{api_bind}");
 
-    let builder = tower::ServiceBuilder::new().layer(HttpAuthLayer::new(api_secrets.get_all()));
+    let builder =
+        tower::ServiceBuilder::new().layer(HttpAuthLayer::new(api_secrets.get_all(), bcrypt_hash));
 
     ServerBuilder::new()
         .max_connections(max_connections)
